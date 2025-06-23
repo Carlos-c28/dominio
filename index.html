@@ -1,369 +1,144 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Solucionador y Graficador de Desigualdades</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 2rem;
-  }
-  label, select, input {
-    margin: 0.5rem 0;
-    display: block;
-  }
-  button {
-    margin-top: 1rem;
-  }
-  #resultado {
-    margin-top: 1rem;
-    font-weight: bold;
-  }
-  #grafica {
-    border: 1px solid #ccc;
-    margin-top: 1rem;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Solucionador y graficador de ecuaciones</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:20px;background:#fafafa}
+    h1{font-size:1.4rem;margin-bottom:10px}
+    label{display:block;margin-top:8px}
+    input,select,button{padding:6px;font-size:1rem;margin-top:4px}
+    #resultados{margin-top:15px;background:#fff;padding:12px;border-radius:6px;box-shadow:0 0 5px #ccc}
+    canvas{max-width:100%;background:#fff;border:1px solid #ddd;border-radius:6px;margin-top:20px}
+  </style>
 </head>
 <body>
-<h2>Solucionador y Graficador de Desigualdades Lineales y Cuadráticas</h2>
+  <h1>Solucionador de ecuaciones lineales y cuadráticas</h1>
 
-<form id="formDesigualdad">
-  <label for="tipo">Tipo de desigualdad:</label>
-  <select id="tipo" name="tipo">
-    <option value="lineal">Lineal (ax + b &lt; 0)</option>
-    <option value="cuadratica">Cuadrática (ax² + bx + c &lt; 0)</option>
-  </select>
+  <!-- Selección de tipo -->
+  <label>Tipo de ecuación:
+    <select id="tipo">
+      <option value="lineal">Lineal (ax + b = 0)</option>
+      <option value="cuadratica">Cuadrática (ax² + bx + c = 0)</option>
+    </select>
+  </label>
 
-  <div id="coefLineal">
-    <label for="aLineal">Coeficiente a (x):</label>
-    <input type="number" id="aLineal" name="aLineal" step="any" required />
+  <!-- Coeficientes -->
+  <label>a: <input type="number" id="a" value="1" step="any"></label>
+  <label>b: <input type="number" id="b" value="0" step="any"></label>
+  <label id="cLabel" style="display:none;">c: <input type="number" id="c" value="0" step="any"></label>
 
-    <label for="bLineal">Coeficiente b (constante):</label>
-    <input type="number" id="bLineal" name="bLineal" step="any" required />
-  </div>
+  <button onclick="resolver()">Resolver y graficar</button>
 
-  <div id="coefCuadratica" style="display:none;">
-    <label for="aCuad">Coeficiente a (x²):</label>
-    <input type="number" id="aCuad" name="aCuad" step="any" />
+  <!-- Resultados -->
+  <div id="resultados"></div>
 
-    <label for="bCuad">Coeficiente b (x):</label>
-    <input type="number" id="bCuad" name="bCuad" step="any" />
+  <!-- Canvas para gráfico -->
+  <canvas id="grafico"></canvas>
 
-    <label for="cCuad">Coeficiente c (constante):</label>
-    <input type="number" id="cCuad" name="cCuad" step="any" />
-  </div>
+  <script>
+    const tipoSelect = document.getElementById('tipo');
+    const cLabel = document.getElementById('cLabel');
+    let chart;          // instancia de Chart.js
 
-  <label for="desigualdad">Tipo de desigualdad:</label>
-  <select id="desigualdad" name="desigualdad">
-    <option value="<">&lt;</option>
-    <option value="<=">&le;</option>
-    <option value=">">&gt;</option>
-    <option value=">=">&ge;</option>
-  </select>
-
-  <button type="submit">Resolver y Graficar</button>
-</form>
-
-<div id="resultado"></div>
-<canvas id="grafica" width="600" height="400"></canvas>
-
-<script>
-  const tipoSelect = document.getElementById("tipo");
-  const coefLineal = document.getElementById("coefLineal");
-  const coefCuadratica = document.getElementById("coefCuadratica");
-  const form = document.getElementById("formDesigualdad");
-  const resultado = document.getElementById("resultado");
-  const canvas = document.getElementById("grafica");
-  const ctx = canvas.getContext("2d");
-
-  // Mostrar/ocultar campos según el tipo seleccionado
-  tipoSelect.addEventListener("change", () => {
-    if (tipoSelect.value === "lineal") {
-      coefLineal.style.display = "block";
-      coefCuadratica.style.display = "none";
-      document.getElementById("aCuad").required = false;
-      document.getElementById("bCuad").required = false;
-      document.getElementById("cCuad").required = false;
-      document.getElementById("aLineal").required = true;
-      document.getElementById("bLineal").required = true;
-    } else {
-      coefLineal.style.display = "none";
-      coefCuadratica.style.display = "block";
-      document.getElementById("aLineal").required = false;
-      document.getElementById("bLineal").required = false;
-      document.getElementById("aCuad").required = true;
-      document.getElementById("bCuad").required = true;
-      document.getElementById("cCuad").required = true;
-    }
-  });
-
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    resultado.textContent = "";
-    clearCanvas();
-
-    const tipo = tipoSelect.value;
-    const desigualdad = document.getElementById("desigualdad").value;
-
-    if (tipo === "lineal") {
-      const a = parseFloat(document.getElementById("aLineal").value);
-      const b = parseFloat(document.getElementById("bLineal").value);
-      if (a === 0) {
-        resultado.textContent = "El coeficiente 'a' no puede ser 0 en una desigualdad lineal.";
-        return;
-      }
-      resolverLineal(a, b, desigualdad);
-    } else {
-      const a = parseFloat(document.getElementById("aCuad").value);
-      const b = parseFloat(document.getElementById("bCuad").value);
-      const c = parseFloat(document.getElementById("cCuad").value);
-      if (a === 0) {
-        resultado.textContent = "El coeficiente 'a' no puede ser 0 en una desigualdad cuadrática.";
-        return;
-      }
-      resolverCuadratica(a, b, c, desigualdad);
-    }
-  });
-
-  function clearCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
-
-  // Función para dibujar ejes
-  function dibujarEjes() {
-    const w = canvas.width;
-    const h = canvas.height;
-    const originX = w / 2;
-    const originY = h / 2;
-
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 1;
-
-    // eje X
-    ctx.beginPath();
-    ctx.moveTo(0, originY);
-    ctx.lineTo(w, originY);
-    ctx.stroke();
-
-    // eje Y
-    ctx.beginPath();
-    ctx.moveTo(originX, 0);
-    ctx.lineTo(originX, h);
-    ctx.stroke();
-
-    // Marcas simples en eje X (cada 50 pixeles)
-    ctx.fillStyle = "#000";
-    ctx.font = "12px Arial";
-    for (let x = originX; x < w; x += 50) {
-      ctx.beginPath();
-      ctx.moveTo(x, originY - 5);
-      ctx.lineTo(x, originY + 5);
-      ctx.stroke();
-      let val = (x - originX) / 25;
-      ctx.fillText(val.toFixed(0), x - 10, originY + 15);
-    }
-    for (let x = originX; x > 0; x -= 50) {
-      ctx.beginPath();
-      ctx.moveTo(x, originY - 5);
-      ctx.lineTo(x, originY + 5);
-      ctx.stroke();
-      let val = (x - originX) / 25;
-      ctx.fillText(val.toFixed(0), x - 10, originY + 15);
-    }
-
-    // Marcas simples en eje Y (cada 50 pixeles)
-    for (let y = originY; y < h; y += 50) {
-      ctx.beginPath();
-      ctx.moveTo(originX - 5, y);
-      ctx.lineTo(originX + 5, y);
-      ctx.stroke();
-      let val = (originY - y) / 25;
-      if (val !== 0) ctx.fillText(val.toFixed(0), originX + 10, y + 5);
-    }
-    for (let y = originY; y > 0; y -= 50) {
-      ctx.beginPath();
-      ctx.moveTo(originX - 5, y);
-      ctx.lineTo(originX + 5, y);
-      ctx.stroke();
-      let val = (originY - y) / 25;
-      if (val !== 0) ctx.fillText(val.toFixed(0), originX + 10, y + 5);
-    }
-  }
-
-  // Convierte coordenada x en valor de canvas y valor matemático a pixel
-  // Para escala: 1 unidad matemática = 25 pixels
-  function xToPixel(x) {
-    return canvas.width / 2 + x * 25;
-  }
-  function yToPixel(y) {
-    return canvas.height / 2 - y * 25;
-  }
-
-  // Dibujar función f(x)
-  function dibujarFuncion(funcion, color = "blue") {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-
-    const step = 0.05;
-    let inicio = -canvas.width / 2 / 25;
-    let fin = canvas.width / 2 / 25;
-
-    for (let x = inicio; x <= fin; x += step) {
-      let y = funcion(x);
-      let px = xToPixel(x);
-      let py = yToPixel(y);
-      if (x === inicio) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-  }
-
-  // Dibuja en el eje X el intervalo solución con un color (rojo)
-  function dibujarIntervalo(intervalos) {
-    // intervalos es un array de arrays, ej: [[-3,1],[2,5]]
-    // dibujaremos una línea gruesa roja sobre el eje X en esos rangos
-    ctx.strokeStyle = "red";
-    ctx.lineWidth = 6;
-    intervalos.forEach(([x1, x2]) => {
-      let p1 = xToPixel(x1);
-      let p2 = xToPixel(x2);
-      let y = yToPixel(0);
-      ctx.beginPath();
-      ctx.moveTo(p1, y);
-      ctx.lineTo(p2, y);
-      ctx.stroke();
+    // Mostrar/ocultar coeficiente c según el tipo
+    tipoSelect.addEventListener('change', () => {
+      cLabel.style.display = tipoSelect.value === 'cuadratica' ? 'block' : 'none';
     });
-  }
 
-  // Función para resolver y graficar lineal
-  function resolverLineal(a, b, signo) {
-    // f(x) = ax + b
-    function f(x) {
-      return a * x + b;
-    }
+    function resolver() {
+      const a = parseFloat(document.getElementById('a').value);
+      const b = parseFloat(document.getElementById('b').value);
+      const tipo = tipoSelect.value;
+      const resultados = document.getElementById('resultados');
+      let c = 0, soluciones = '', rangoString = '';
 
-    dibujarEjes();
-    dibujarFuncion(f, "blue");
-
-    let xSol = -b / a;
-    let sentido = signo;
-
-    // Si a < 0, invertir sentido
-    if (a < 0) {
-      if (signo === "<") sentido = ">";
-      else if (signo === "<=") sentido = ">=";
-      else if (signo === ">") sentido = "<";
-      else if (signo === ">=") sentido = "<=";
-    }
-
-    // Determinar intervalo solución
-    let intervalos = [];
-    switch (sentido) {
-      case "<":
-        intervalos = [[-Infinity, xSol]];
-        break;
-      case "<=":
-        intervalos = [[-Infinity, xSol]];
-        break;
-      case ">":
-        intervalos = [[xSol, Infinity]];
-        break;
-      case ">=":
-        intervalos = [[xSol, Infinity]];
-        break;
-    }
-
-    // Mostrar intervalo en texto (con infinito)
-    let textoIntervalo = intervalos
-      .map(([inicio, fin]) => {
-        const start = inicio === -Infinity ? "−∞" : inicio.toFixed(3);
-        const end = fin === Infinity ? "∞" : fin.toFixed(3);
-        const opInicio = inicio === -Infinity ? "(" : "[";
-        const opFin = fin === Infinity ? ")" : "]";
-        return `${opInicio}${start}, ${end}${opFin}`;
-      })
-      .join(" ∪ ");
-
-    resultado.textContent = `Solución: x ${sentido} ${xSol.toFixed(3)}\nIntervalo: ${textoIntervalo}`;
-
-    // Para dibujar en canvas, reemplazamos infinito por límites visibles
-    const dibujaIntervalos = intervalos.map(([inicio, fin]) => [
-      inicio === -Infinity ? -10 : inicio,
-      fin === Infinity ? 10 : fin,
-    ]);
-
-    dibujarIntervalo(dibujaIntervalos);
-  }
-
-  // Función para resolver y graficar cuadrática
-  function resolverCuadratica(a, b, c, signo) {
-    // f(x) = ax² + bx + c
-    function f(x) {
-      return a * x * x + b * x + c;
-    }
-
-    dibujarEjes();
-    dibujarFuncion(f, "blue");
-
-    const d = b * b - 4 * a * c;
-    let texto = "";
-    let intervalos = [];
-
-    if (d < 0) {
-      // No raíces reales
-      if ((a > 0 && (signo === "<" || signo === "<=")) || (a < 0 && (signo === ">" || signo === ">="))) {
-        texto = "No hay solución real.";
-      } else {
-        texto = "La desigualdad es verdadera para todo x.";
-        intervalos = [[-10, 10]]; // dibujamos todo el rango visible
-      }
-    } else if (d === 0) {
-      const r = -b / (2 * a);
-      if (signo === "<") {
-        texto = a > 0 ? `x ≠ ${r.toFixed(3)}` : `x = ${r.toFixed(3)}`;
-      } else if (signo === "<=") {
-        texto = a > 0 ? `x = ${r.toFixed(3)}` : `x ∈ R`;
-        if (a > 0) intervalos = [[-10, r - 0.001], [r + 0.001, 10]];
-        else intervalos = [[-10, 10]];
-      } else if (signo === ">") {
-        texto = a < 0 ? `x ≠ ${r.toFixed(3)}` : `x = ${r.toFixed(3)}`;
-      } else if (signo === ">=") {
-        texto = a < 0 ? `x = ${r.toFixed(3)}` : `x ∈ R`;
-        if (a < 0) intervalos = [[-10, r - 0.001], [r + 0.001, 10]];
-        else intervalos = [[-10, 10]];
-      }
-    } else {
-      const r1 = (-b - Math.sqrt(d)) / (2 * a);
-      const r2 = (-b + Math.sqrt(d)) / (2 * a);
-      const raiz1 = Math.min(r1, r2);
-      const raiz2 = Math.max(r1, r2);
-
-      if (signo === "<") {
-        if (a > 0) intervalos = [[raiz1, raiz2]];
-        else intervalos = [[-10, raiz1], [raiz2, 10]];
-      } else if (signo === "<=") {
-        if (a > 0) intervalos = [[raiz1, raiz2]];
-        else intervalos = [[-10, raiz1], [raiz2, 10]];
-      } else if (signo === ">") {
-        if (a > 0) intervalos = [[-10, raiz1], [raiz2, 10]];
-        else intervalos = [[raiz1, raiz2]];
-      } else if (signo === ">=") {
-        if (a > 0) intervalos = [[-10, raiz1], [raiz2, 10]];
-        else intervalos = [[raiz1, raiz2]];
+      // Valida ‘a’ ≠ 0 para ambas ecuaciones
+      if (a === 0) {
+        alert('El coeficiente a no puede ser 0.');
+        return;
       }
 
-      texto = "Intervalo(s) solución: " + intervalos
-        .map(([i, f]) => `[${i.toFixed(3)}, ${f.toFixed(3)}]`)
-        .join(" ∪ ");
+      // Lineal
+      if (tipo === 'lineal') {
+        const x = -b / a;
+        soluciones = Solución única: x = ${x.toFixed(4)};
+        rangoString = 'Rango: (-∞, ∞)';
+      }
+      // Cuadrática
+      else {
+        c = parseFloat(document.getElementById('c').value);
+        const discriminante = b * b - 4 * a * c;
+
+        if (discriminante > 0) {
+          const x1 = (-b + Math.sqrt(discriminante)) / (2 * a);
+          const x2 = (-b - Math.sqrt(discriminante)) / (2 * a);
+          soluciones = Dos soluciones reales: x₁ = ${x1.toFixed(4)}, x₂ = ${x2.toFixed(4)};
+        } else if (discriminante === 0) {
+          const x = -b / (2 * a);
+          soluciones = Una solución real doble: x = ${x.toFixed(4)};
+        } else {
+          const real = (-b / (2 * a)).toFixed(4);
+          const imag = (Math.sqrt(-discriminante) / (2 * a)).toFixed(4);
+          soluciones = Soluciones complejas: x = ${real} ± ${imag}i;
+        }
+
+        // Rango (para todo ℝ)
+        const yVertex = (-discriminante) / (4 * a);
+        rangoString = a > 0
+          ? Rango: [${yVertex.toFixed(4)}, ∞)
+          : Rango: (-∞, ${yVertex.toFixed(4)}];
+      }
+
+      // Dominios para polinomios: todo ℝ
+      const dominioString = 'Dominio: (-∞, ∞)';
+
+      // Mostrar resultados
+      resultados.innerHTML = `
+        <strong>${soluciones}</strong><br>
+        ${dominioString}<br>
+        ${rangoString}
+      `;
+
+      // -------------------------------------------------
+      // Generar datos para el gráfico en [-20, 20]
+      const xs = [];
+      const ys = [];
+      for (let x = -20; x <= 20; x += 0.2) {
+        const y = tipo === 'lineal'
+          ? a * x + b
+          : a * x * x + b * x + c;
+        xs.push(x.toFixed(2));
+        ys.push(y);
+      }
+
+      // Si ya había un gráfico, destruirlo antes de crear uno nuevo
+      if (chart) chart.destroy();
+
+      chart = new Chart(document.getElementById('grafico'), {
+        type: 'line',
+        data: {
+          labels: xs,
+          datasets: [{
+            label: tipo === 'lineal' ? 'f(x) = ax + b' : 'f(x) = ax² + bx + c',
+            data: ys,
+            fill: false,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: 'x' } },
+            y: { title: { display: true, text: 'f(x)' } }
+          }
+        }
+      });
     }
 
-    resultado.textContent = texto;
-
-    dibujarIntervalo(intervalos);
-  }
-</script>
+    // Ejecuta una primera gráfica por defecto
+    resolver();
+  </script>
 </body>
 </html>
