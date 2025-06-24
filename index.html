@@ -1,190 +1,184 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Solucionador, graficador y bot que habla</title>
+  <meta charset="UTF-8">
+  <title>Graficador con ejes y asíntotas</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #fafafa; }
-    h1 { font-size: 1.5rem; margin-bottom: 10px; }
-    label { display: block; margin-top: 10px; }
-    input, select, button { padding: 6px; font-size: 1rem; margin-top: 4px; }
-    #resultados { margin-top: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 0 6px #ccc; }
-    canvas { max-width: 100%; background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-top: 25px; }
-    #chatbot {
-      margin-top: 35px;
-      padding: 15px;
-      background: #e0f7fa;
-      border-radius: 8px;
-      max-width: 600px;
-    }
-    #mensajeUsuario {
-      width: 70%;
-      padding: 8px;
-      font-size: 1rem;
-    }
-  </style>
+    body {margin:0; font-family:sans-serif; display:flex; height:100vh;}
+    .panel {flex:1; padding:20px; background:#f5f5f5; overflow-y:auto;}
+    h1 {font-size:1.3rem;}
+    input,button {width:100%; font-size:1rem; padding:8px; margin-bottom:12px;}
+    button {background:#1976d2; color:#fff; border:none; border-radius:4px; cursor:pointer;}
+    button.export {background:#43a047;}
+    canvas {width:100%; height:340px; border:1px solid #ccc; border-radius:6px; background:#fff; margin-bottom:10px;}
+    table {width:100%; border-collapse:collapse; margin-top:10px;}
+    th,td {border:1px solid #ccc; padding:6px; text-align:center;}
+    th {background:#1976d2; color:#fff;}
+    #resultados {margin-bottom:10px; background:#fff; padding:10px; border:1px solid #ccc; border-radius:6px;}
+    </style>
 </head>
 <body>
 
-  <h1>Solucionador y graficador de ecuaciones lineales y cuadráticas</h1>
-
-  <label>Tipo de ecuación:
-    <select id="tipo">
-      <option value="lineal">Lineal (ax + b = 0)</option>
-      <option value="cuadratica">Cuadrática (ax² + bx + c = 0)</option>
-    </select>
-  </label>
-
-  <label>a: <input type="number" id="a" value="1" step="any" /></label>
-  <label>b: <input type="number" id="b" value="0" step="any" /></label>
-  <label id="cLabel" style="display:none;">c: <input type="number" id="c" value="0" step="any" /></label>
-
-  <button onclick="resolver()">Resolver y graficar</button>
+<div class="panel">
+  <h1>✏ Ingresa f(x) (de -20 a 20)</h1>
+  <input id="funcion" placeholder="Ej: x^2 - 4, 1/(x-2), sqrt(x)">
+  <button onclick="resolver()">Graficar</button>
+  <button class="export" onclick="descargar()">📷 Guardar como imagen</button>
 
   <div id="resultados"></div>
-
   <canvas id="grafico"></canvas>
-
-  <!-- Chatbot simple -->
-  <div id="chatbot">
-    <h2>Chatbot que te habla</h2>
-    <label for="mensajeUsuario">Escribe tu mensaje:</label><br />
-    <input type="text" id="mensajeUsuario" placeholder="Hola, ¿cómo estás?" />
-    <button onclick="responderBot()">Enviar</button>
-    <p><strong>Bot dice:</strong> <span id="respuestaBot">...</span></p>
-  </div>
+  <div id="tabla"></div>
+</div>
 
 <script>
-  const tipoSelect = document.getElementById('tipo');
-  const cLabel = document.getElementById('cLabel');
-  let chart;
+let chart;
+const X_MIN = -20, X_MAX = 20, Y_MAX = 10;
 
-  tipoSelect.addEventListener('change', () => {
-    cLabel.style.display = tipoSelect.value === 'cuadratica' ? 'block' : 'none';
+function resolver() {
+  const expr = document.getElementById('funcion').value.trim();
+  if (!expr) return alert("Escribe una función");
+
+  let f;
+  try { f = math.compile(expr); } catch { return alert("Función inválida"); }
+
+  const xs = [], ys = [], tabla = [];
+  for (let x = X_MIN; x <= X_MAX; x += 0.5) {
+    let y;
+    try {
+      y = f.evaluate({x});
+      if (!isFinite(y) || Math.abs(y) > 100) y = null;
+    } catch { y = null; }
+    xs.push(x.toFixed(2));
+    ys.push(y);
+      tabla.push({x: x.toFixed(2), y: y !== null ? y.toFixed(4) : "---"});
+  }
+
+  const visibles = ys.filter(y => y !== null);
+  const minY = Math.min(...visibles), maxY = Math.max(...visibles);
+
+  // Asíntotas
+  const av = [];
+  for (let x = X_MIN; x <= X_MAX; x += 0.1) {
+    let y1, y2;
+    try { y1 = f.evaluate({x: x - 0.01}); } catch {}
+    try { y2 = f.evaluate({x: x + 0.01}); } catch {}
+    if (y1 !== undefined && y2 !== undefined && Math.abs(y1 - y2) > 50)
+      av.push(+x.toFixed(2));
+  }
+  const ah = (() => {
+ try {
+      const y1 = f.evaluate({x: 1e6});
+      const y2 = f.evaluate({x: -1e6});
+      if (Math.abs(y1 - y2) < 1) return y1.toFixed(2);
+    } catch {}
+    return null;
+  })();
+
+  document.getElementById('resultados').innerHTML =
+    `<b>📌 Dominio:</b> de -20 a 20<br>
+     <b>📌 Rango visible:</b> y ∈ [${minY.toFixed(2)}, ${maxY.toFixed(2)}]<br>
+     <b>📌 Asíntotas verticales:</b> ${av.length ? av.join(', ') : 'ninguna'}<br>
+     <b>📌 Asíntota horizontal:</b> ${ah ? 'y = ' + ah : 'ninguna'}`;
+
+  let tablaHTML = <table><thead><tr><th>x</th><th>f(x)</th></tr></thead><tbody>;
+  tabla.forEach(row => tablaHTML += <tr><td>${row.x}</td><td>${row.y}</td></tr>);
+  tablaHTML += </tbody></table>;
+  document.getElementById('tabla').innerHTML = tablaHTML;
+// Dataset: función
+  const datasets = [{
+    label: f(x) = ${expr},
+    data: ys,
+    borderColor: '#1976d2',
+    fill: false,
+    spanGaps: false,
+    pointRadius: 0
+  }];
+
+  // Dataset: ejes X e Y
+  datasets.push({
+    label: 'Eje Y',
+    data: [{x: 0, y: -Y_MAX}, {x: 0, y: Y_MAX}],
+    borderColor: '#999',
+    borderDash: [4, 4],
+    borderWidth: 1,
+    fill: false,
+    pointRadius: 0
+  });
+  datasets.push({
+    label: 'Eje X',
+    data: [{x: X_MIN, y: 0}, {x: X_MAX, y: 0}],
+    borderColor: '#999',
+borderDash: [4, 4],
+    borderWidth: 1,
+    fill: false,
+    pointRadius: 0
   });
 
-  function resolver() {
-    const a = parseFloat(document.getElementById('a').value);
-    const b = parseFloat(document.getElementById('b').value);
-    const tipo = tipoSelect.value;
-    let c = 0;
-    const resultados = document.getElementById('resultados');
+  // Dataset: asíntotas verticales
+  av.forEach(xVal => {
+    datasets.push({
+      label: AV x=${xVal},
+      data: [{x: xVal, y: -Y_MAX}, {x: xVal, y: Y_MAX}],
+      borderColor: '#e53935',
+      borderDash: [5, 5],
+      borderWidth: 1,
+      fill: false,
+      pointRadius: 0
+    });
+  });
 
-    if (a === 0) {
-      alert('El coeficiente "a" no puede ser 0.');
-      return;
-    }
-
-    let soluciones = '';
-    let dominio = 'Dominio: (-∞, ∞)';
-    let rango = '';
-
-    if (tipo === 'lineal') {
-      const x = -b / a;
-      soluciones = `Solución única: x = ${x.toFixed(4)}`;
-      rango = 'Rango: (-∞, ∞)';
-    } else {
-      c = parseFloat(document.getElementById('c').value);
-      const discriminante = b*b - 4*a*c;
-      if (discriminante > 0) {
-        const x1 = (-b + Math.sqrt(discriminante)) / (2*a);
-        const x2 = (-b - Math.sqrt(discriminante)) / (2*a);
-        soluciones = `Dos soluciones reales: x₁ = ${x1.toFixed(4)}, x₂ = ${x2.toFixed(4)}`;
-      } else if (discriminante === 0) {
-        const x = -b/(2*a);
-        soluciones = `Una solución real doble: x = ${x.toFixed(4)}`;
-      } else {
-        const real = (-b/(2*a)).toFixed(4);
-        const imag = (Math.sqrt(-discriminante)/(2*a)).toFixed(4);
-        soluciones = `Soluciones complejas: x = ${real} ± ${imag}i`;
-      }
-
-      // Vértice para rango
-      const yVertice = (4*a*c - b*b)/(4*a);
-      if (a > 0) {
-        rango = `Rango: [${yVertice.toFixed(4)}, ∞)`;
-      } else {
-        rango = `Rango: (-∞, ${yVertice.toFixed(4)}]`;
-      }
-    }
-
-    resultados.innerHTML = `
-      <strong>${soluciones}</strong><br>
-      ${dominio}<br>
-      ${rango}
-    `;
-
-    // Datos para gráfica
-    const xs = [];
-    const ys = [];
-    for (let x = -20; x <= 20; x += 0.2) {
-      let y;
-      if (tipo === 'lineal') {
-        y = a*x + b;
-      } else {
-        y = a*x*x + b*x + c;
-      }
-      xs.push(x.toFixed(2));
-      ys.push(y);
-    }
-
-    if (chart) chart.destroy();
-
-    chart = new Chart(document.getElementById('grafico'), {
-      type: 'line',
-      data: {
-        labels: xs,
-        datasets: [{
-          label: tipo === 'lineal' ? 'f(x) = ax + b' : 'f(x) = ax² + bx + c',
-          data: ys,
-          borderColor: 'blue',
-          fill: false,
-          tension: 0.1,
-          pointRadius: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        scales: {
-          x: { title: { display: true, text: 'x' } },
-          y: { title: { display: true, text: 'f(x)' } }
-        }
-      }
+  // Dataset: asíntota horizontal
+  if (ah !== null) {
+    datasets.push({
+      label: AH y=${ah},
+      data: [{x: X_MIN, y: +ah}, {x: X_MAX, y: +ah}],
+      borderColor: '#ffb300',
+      borderDash: [4, 4],
+      borderWidth: 1,
+  fill: false,
+      pointRadius: 0
     });
   }
 
-  resolver(); // gráfica inicial
-
-  // Chatbot con síntesis de voz
-  function responderBot() {
-    const input = document.getElementById('mensajeUsuario').value.toLowerCase().trim();
-    const respuestaElemento = document.getElementById('respuestaBot');
-    let respuesta = '';
-
-    if (!input) {
-      respuesta = 'Por favor, escribe algo para que pueda responder.';
-    } else if (input.includes('hola') || input.includes('buenos días') || input.includes('buenas tardes')) {
-      respuesta = '¡Hola! Estoy aquí para ayudarte con ecuaciones.';
-    } else if (input.includes('cómo estás') || input.includes('cómo te va')) {
-      respuesta = '¡Estoy muy bien, gracias por preguntar! ¿Quieres resolver alguna ecuación?';
-    } else if (input.includes('gracias')) {
-      respuesta = '¡De nada! Me alegra poder ayudarte.';
-    } else if (input.includes('resolver')) {
-      respuesta = 'Solo ingresa los coeficientes y presiona "Resolver y graficar".';
-    } else {
-      respuesta = 'Lo siento, no entendí eso. ¿Puedes preguntar otra cosa?';
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('grafico'), {
+    type: 'line',
+    data: { labels: xs, datasets },
+    options: {
+      responsive: true,
+      scales: {
+        x: { min: X_MIN, max: X_MAX, title: { display: true, text: 'x' }},
+        y: { min: -Y_MAX, max: Y_MAX, title: { display: true, text: 'f(x)' }}
+      },
+      plugins: {
+        zoom: {
+          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' },
+          pan: { enabled: true, mode: 'xy' }
+        },
+        legend: { display: true }
+      }
     }
+  });
+}
 
-    respuestaElemento.textContent = respuesta;
-
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(respuesta);
-      utterance.lang = 'es-ES'; // idioma español
-      speechSynthesis.speak(utterance);
-    }
-  }
+function descargar() {
+  if (!chart) return alert("Genera primero la gráfica.");
+  const url = chart.toBase64Image();
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'grafica.png';
+  a.click();
+}
 </script>
-
 </body>
 </html>
+
+  
+       
+
+   
+        
+ 
