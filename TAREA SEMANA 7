@@ -1,0 +1,101 @@
+  <!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gráfica de Ecuación con Desigualdad</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    canvas {
+      background-color: #ffffff;
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
+    }
+    .info {
+      background: #ffffff;
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    .autor {
+      margin-top: 30px;
+      font-style: italic;
+      color: #555;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Desigualdad: y > x² - 4</h1>
+
+  <canvas id="grafica" width="600" height="400"></canvas>
+
+  <div class="info">
+    <h2>Dominio</h2>
+    <p>El dominio es: <strong>ℝ</strong> (todos los números reales), ya que la parábola está definida para todo valor de x.</p>
+
+    <h2>Rango</h2>
+    <p>El rango es: <strong>y ∈ (–4, ∞)</strong>, ya que es la región por encima de la parábola <em>y = x² – 4</em>.</p>
+  </div>
+
+  <div class="autor">
+    Realizado por: <strong>Carlos Cuenca</strong>
+  </div>
+
+  <script>
+    const xValues = [];
+    const yValues = [];
+
+    for (let x = -10; x <= 10; x += 0.1) {
+      xValues.push(x.toFixed(1));
+      yValues.push((x * x - 4).toFixed(2));
+    }
+
+    const ctx = document.getElementById('grafica').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: xValues,
+        datasets: [{
+          label: 'y = x² - 4',
+          data: yValues,
+          borderColor: 'blue',
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false
+        }]
+      },
+      options: {
+        plugins: {
+          title: {
+            display: true,
+            text: 'Gráfica de y = x² - 4 (Zona válida: y > x² - 4)'
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'x'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'y'
+            },
+            min: -10,
+            max: 20
+          }
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>
